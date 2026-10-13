@@ -651,7 +651,7 @@ export const scenes: Scene[] = [
     eyebrow: "ILLUSTRATIVE WALKTHROUGH",
     headline: "From a login",
     emphasis: "to an attack hypothesis.",
-    lead: "Step through the same synthetic incident. Each observation adds context; the analyst decides what the evidence establishes.",
+    lead: "Watch the same synthetic incident unfold automatically. Each observation adds context; the analyst decides what the evidence establishes.",
     visual: "detection-demo",
     layout: "wide",
     illustrative: true,
@@ -706,7 +706,7 @@ export const scenes: Scene[] = [
     ],
     notes: n(
       "Let the evidence change the hypothesis one step at a time.",
-      "Advance through the builds. First show the valid-looking identity event, then execution, then movement. Finish with archive staging and the outbound connection. Do not call this confirmed exfiltration. The useful output is an investigation with specific entities, a time window, and evidence to examine.",
+      "Follow the automatic sequence. First show the valid-looking identity event, then execution, then movement. Finish with archive staging and the outbound connection. Do not call this confirmed exfiltration. The useful output is an investigation with specific entities, a time window, and evidence to examine.",
       "We also need to know which entities matter most.",
       60,
     ),
@@ -1229,7 +1229,7 @@ export const scenes: Scene[] = [
     ],
     notes: n(
       "Follow the evidence loop, not the eloquence of the answer.",
-      "Advance through the question, query, result rows, and qualified explanation. The scripted answer is intentionally careful about the outbound connection. The account owner verifies the unauthorized commands; the analyst then documents what is known and asks the response owner for a specific action.",
+      "Follow the automatic sequence of the question, query, result rows, and qualified explanation. The scripted answer is intentionally careful about the outbound connection. The account owner verifies the unauthorized commands; the analyst then documents what is known and asks the response owner for a specific action.",
       "Where that reasoning runs is a deployment decision.",
       60,
     ),

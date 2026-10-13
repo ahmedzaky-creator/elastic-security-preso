@@ -2,36 +2,44 @@ import { test, expect } from "@playwright/test";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
-test("every walkthrough step is available, reversible and qualified", async ({
+test("walkthrough animations play every phase and loop without navigation", async ({
   page,
 }) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.clock.install({ time: new Date("2026-10-13T12:00:00Z") });
+  await page.clock.pauseAt(new Date("2026-10-13T12:00:00Z"));
   await page.goto("/#0");
-  const builds = await page.evaluate(() =>
+  const sequences = await page.evaluate(() =>
     (window as any).__PRESENTATION__.scenes.filter((s: any) => s.steps),
   );
-  expect(builds).toHaveLength(4);
-  for (const s of builds) {
-    await page.goto(`/#${s.index}`);
-    for (let n = 0; n < s.steps.length; n++) {
-      if (n) await page.locator("#next").click();
+  expect(sequences).toHaveLength(4);
+  for (const scene of sequences) {
+    await page.goto(`/#${scene.index}`);
+    for (let phase = 0; phase < scene.steps.length; phase++) {
+      if (phase) await page.clock.runFor(3200);
+      await expect(page.locator("html")).toHaveAttribute(
+        "data-slide",
+        String(scene.index),
+      );
       await expect(page.locator("html")).toHaveAttribute(
         "data-step",
-        String(n),
+        String(phase),
       );
-      await expect(page.locator(".step-strip")).toContainText(s.steps[n].label);
+      await expect(page.locator(".step-strip")).toContainText(
+        scene.steps[phase].label,
+      );
       await expect(page.locator(".security-visual")).toHaveAttribute(
         "data-step",
-        String(n),
+        String(phase),
       );
       await expect(page.locator(".qualification")).not.toBeEmpty();
     }
-    for (let n = s.steps.length - 2; n >= 0; n--) {
-      await page.locator("#prev").click();
-      await expect(page.locator("html")).toHaveAttribute(
-        "data-step",
-        String(n),
-      );
-    }
+    await page.clock.runFor(4800);
+    await expect(page.locator("html")).toHaveAttribute("data-step", "0");
+    await expect(page.locator("html")).toHaveAttribute(
+      "data-slide",
+      String(scene.index),
+    );
   }
 });
 
@@ -68,8 +76,17 @@ test("standalone HTML works offline with embedded fonts and complete previews", 
   expect(embedded).toBe(true);
   await page.locator('#overview-dialog [data-goto="28"]').click();
   await expect(page.locator("html")).toHaveAttribute("data-slide", "28");
+  await expect(page.locator("html")).toHaveAttribute("data-step", "3");
   await page.locator("#next").click();
+  await expect(page.locator("html")).toHaveAttribute("data-slide", "29");
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.clock.install({ time: new Date("2026-10-13T12:00:00Z") });
+  await page.clock.pauseAt(new Date("2026-10-13T12:00:00Z"));
+  await page.goto(page.url().split("#")[0] + "#28");
+  await page.clock.runFor(3200);
   await expect(page.locator("html")).toHaveAttribute("data-step", "1");
+  await page.keyboard.press("ArrowRight");
+  await expect(page.locator("html")).toHaveAttribute("data-slide", "29");
   expect(errors).toEqual([]);
   expect(external).toEqual([]);
   await context.close();
@@ -124,41 +141,115 @@ test("all 34 core deep links render unique complete scenes", async ({
   expect(errors).toEqual([]);
 });
 
-test("walkthrough advances and rewinds before changing scenes; replay resets", async ({
+test("arrows and navigation controls always change slides immediately", async ({
   page,
 }) => {
-  await page.goto("/#13");
-  for (let i = 1; i <= 4; i++) {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  for (const scene of [13, 22, 25, 28]) {
+    await page.goto(`/#${scene}`);
+    await expect(page.locator("html")).toHaveAttribute("data-step", "0");
+    await page.keyboard.press("ArrowRight");
+    await expect(page.locator("html")).toHaveAttribute(
+      "data-slide",
+      String(scene + 1),
+    );
+    await page.keyboard.press("ArrowLeft");
+    await expect(page.locator("html")).toHaveAttribute(
+      "data-slide",
+      String(scene),
+    );
+    await expect(page.locator("html")).toHaveAttribute("data-step", "0");
+    await page.locator("#prev").click();
+    await expect(page.locator("html")).toHaveAttribute(
+      "data-slide",
+      String(scene - 1),
+    );
     await page.locator("#next").click();
-    await expect(page.locator("html")).toHaveAttribute("data-slide", "13");
-    await expect(page.locator("html")).toHaveAttribute("data-step", String(i));
+    await expect(page.locator("html")).toHaveAttribute(
+      "data-slide",
+      String(scene),
+    );
   }
-  await page.locator("#next").click();
-  await expect(page.locator("html")).toHaveAttribute("data-slide", "14");
-  await page.locator("#prev").click();
-  await expect(page.locator("html")).toHaveAttribute("data-step", "4");
-  await page.locator("#prev").click();
-  await expect(page.locator("html")).toHaveAttribute("data-step", "3");
-  await page.locator("#replay").click();
-  await expect(page.locator("html")).toHaveAttribute("data-step", "0");
+  await page.locator("body").click({ position: { x: 1, y: 1 } });
+  for (const key of ["Space", "PageDown"]) {
+    await page.keyboard.press(key);
+    await expect(page.locator("html")).toHaveAttribute("data-slide", "29");
+    await page.keyboard.press("PageUp");
+    await expect(page.locator("html")).toHaveAttribute("data-slide", "28");
+  }
+  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("ArrowRight");
+  await expect(page.locator("html")).toHaveAttribute("data-slide", "31");
 });
 
-test("browser back and forward retain the last visited walkthrough build", async ({
+test("browser history returns to slides and restarts their animations", async ({
   page,
 }) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.clock.install({ time: new Date("2026-10-13T12:00:00Z") });
+  await page.clock.pauseAt(new Date("2026-10-13T12:00:00Z"));
   await page.goto("/#13");
-  for (let i = 0; i < 4; i++) await page.locator("#next").click();
-  await page.locator("#next").click();
+  await page.clock.runFor(6400);
+  await expect(page.locator("html")).toHaveAttribute("data-step", "2");
+  await page.keyboard.press("ArrowRight");
   await expect(page.locator("html")).toHaveAttribute("data-slide", "14");
   await page.goBack();
   await expect(page.locator("html")).toHaveAttribute("data-slide", "13");
-  await expect(page.locator("html")).toHaveAttribute("data-step", "4");
+  await expect(page.locator("html")).toHaveAttribute("data-step", "0");
   await page.goForward();
   await expect(page.locator("html")).toHaveAttribute("data-slide", "14");
-  await page.locator("#prev").click();
-  await page.goBack();
-  await page.goForward();
-  await expect(page.locator("html")).toHaveAttribute("data-step", "4");
+  await page.clock.runFor(20000);
+  await expect(page.locator("html")).toHaveAttribute("data-step", "0");
+});
+
+test("automatic animation preserves annotations and pauses for overlays and drawing", async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.clock.install({ time: new Date("2026-10-13T12:00:00Z") });
+  await page.clock.pauseAt(new Date("2026-10-13T12:00:00Z"));
+  await page.goto("/#28");
+  await page.locator("#notes-toggle").click();
+  await page.locator("#draw-toggle").click();
+  const box = await page.locator("#stage-wrap").boundingBox();
+  await page.mouse.move(box!.x + 100, box!.y + 100);
+  await page.mouse.down();
+  await page.mouse.move(box!.x + 200, box!.y + 200);
+  await page.mouse.up();
+  await page.clock.runFor(10000);
+  await expect(page.locator("html")).toHaveAttribute("data-step", "0");
+  await page.keyboard.press("Escape");
+  await page.clock.runFor(3200);
+  await expect(page.locator("html")).toHaveAttribute("data-step", "1");
+  await expect(page.locator("#ink path")).toHaveCount(1);
+  await expect(page.locator("#notes-panel")).toBeVisible();
+  await page.locator("#help-toggle").click();
+  await page.clock.runFor(10000);
+  await expect(page.locator("html")).toHaveAttribute("data-step", "1");
+  const closed = page
+    .locator("#help-dialog")
+    .evaluate(
+      (dialog) =>
+        new Promise<void>((resolve) =>
+          dialog.addEventListener("close", () => resolve(), { once: true }),
+        ),
+    );
+  await page.locator("#help-dialog [data-close]").click();
+  await closed;
+  await page.clock.runFor(3200);
+  await expect(page.locator("html")).toHaveAttribute("data-step", "2");
+  await page.locator("#replay").click();
+  await expect(page.locator("html")).toHaveAttribute("data-step", "0");
+  await page.clock.runFor(3200);
+  await expect(page.locator("html")).toHaveAttribute("data-step", "1");
+  await page.getByRole("button", { name: "Density 5", exact: true }).click();
+  await page.clock.runFor(3200);
+  await expect(page.locator("html")).toHaveAttribute("data-step", "2");
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await expect(page.locator("html")).toHaveAttribute("data-step", "3");
+  await page.clock.runFor(20000);
+  await expect(page.locator("html")).toHaveAttribute("data-step", "3");
 });
 
 test("in-page hash changes update the slide and notes without reload", async ({
@@ -277,6 +368,8 @@ test("laser and drawing are usable and drawing is cleared on slide exit", async 
 test("reduced motion completes drawings; print has exactly 34 core pages", async ({
   page,
 }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/#12");
   const motion = await page
     .locator(".security-visual .reveal")
@@ -284,6 +377,8 @@ test("reduced motion completes drawings; print has exactly 34 core pages", async
     .evaluate((el) => getComputedStyle(el).animationName);
   expect(motion).toBe("none");
   await page.goto("/?print=1&density=3");
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.emulateMedia({ reducedMotion: "reduce" });
   await expect(page.locator(".print-page")).toHaveCount(34);
   await expect(page.locator(".print-page .security-visual svg")).toHaveCount(
     34,
@@ -292,6 +387,7 @@ test("reduced motion completes drawings; print has exactly 34 core pages", async
     2,
   );
   await expect(page.locator("#appendix-dialog")).toHaveCount(0);
+  expect(errors).toEqual([]);
 });
 
 test("mobile touch navigation and help remain accessible", async ({
@@ -305,9 +401,7 @@ test("mobile touch navigation and help remain accessible", async ({
   });
   const page = await context.newPage();
   await page.goto("http://127.0.0.1:4173/#0");
-  await page
-    .getByRole("button", { name: "Next slide or step", exact: true })
-    .tap();
+  await page.getByRole("button", { name: "Next slide", exact: true }).tap();
   await expect(page.locator("html")).toHaveAttribute("data-slide", "1");
   await page.locator("#stage-wrap").dispatchEvent("pointerdown", {
     pointerType: "touch",

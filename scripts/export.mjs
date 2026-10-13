@@ -6,10 +6,13 @@ import { chromium } from "@playwright/test";
 import { loadScenes, writeNotes } from "./content.mjs";
 
 const root = path.resolve(".");
+const offlineOnly = process.argv.includes("--offline-only");
 const dist = path.join(root, "dist");
 const downloads = path.join(root, "public/downloads");
 const thumbnails = path.join(root, "public/thumbnails");
-const outputs = path.resolve(process.env.PRESENTATION_OUTPUT_DIR || "artifacts");
+const outputs = path.resolve(
+  process.env.PRESENTATION_OUTPUT_DIR || "artifacts",
+);
 const qa = path.resolve(process.env.PRESENTATION_QA_DIR || "work/qa");
 await Promise.all(
   [downloads, thumbnails, outputs, qa].map((dir) =>
@@ -70,37 +73,41 @@ try {
   });
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
-  for (let i = 0; i < scenes.length; i++) {
-    await page.goto(`${url}?render=static&density=3#${i}`, {
-      waitUntil: "networkidle",
-    });
-    await page.evaluate(() => document.fonts.ready);
-    await page.screenshot({
-      path: path.join(qa, `export-${String(i + 1).padStart(2, "0")}.png`),
-    });
-    await page.setViewportSize({ width: 480, height: 270 });
-    await page.screenshot({
-      path: path.join(thumbnails, `${String(i + 1).padStart(2, "0")}.png`),
-    });
-    await page.setViewportSize({ width: 1280, height: 720 });
-  }
-  if (errors.length) throw new Error(errors.join("\n"));
+  if (!offlineOnly) {
+    for (let i = 0; i < scenes.length; i++) {
+      await page.goto(`${url}?render=static&density=3#${i}`, {
+        waitUntil: "networkidle",
+      });
+      await page.evaluate(() => document.fonts.ready);
+      await page.screenshot({
+        path: path.join(qa, `export-${String(i + 1).padStart(2, "0")}.png`),
+      });
+      await page.setViewportSize({ width: 480, height: 270 });
+      await page.screenshot({
+        path: path.join(thumbnails, `${String(i + 1).padStart(2, "0")}.png`),
+      });
+      await page.setViewportSize({ width: 1280, height: 720 });
+    }
+    if (errors.length) throw new Error(errors.join("\n"));
 
-  await page.goto(`${url}?print=1&density=3`, { waitUntil: "networkidle" });
-  await page.evaluate(() => document.fonts.ready);
-  const pageCount = await page.locator(".print-page").count();
-  if (pageCount !== 34)
-    throw new Error(`Unexpected print-page count: ${pageCount}`);
-  const pdf = path.join(downloads, "elastic-security-preso.pdf");
-  await page.pdf({
-    path: pdf,
-    width: "1280px",
-    height: "720px",
-    printBackground: true,
-    preferCSSPageSize: true,
-    tagged: true,
-    margin: { top: 0, right: 0, bottom: 0, left: 0 },
-  });
+    await page.goto(`${url}?print=1&density=3`, { waitUntil: "networkidle" });
+    await page.evaluate(() => document.fonts.ready);
+    const pageCount = await page.locator(".print-page").count();
+    if (pageCount !== 34)
+      throw new Error(`Unexpected print-page count: ${pageCount}`);
+    const pdf = path.join(downloads, "elastic-security-preso.pdf");
+    await page.pdf({
+      path: pdf,
+      width: "1280px",
+      height: "720px",
+      printBackground: true,
+      preferCSSPageSize: true,
+      tagged: true,
+      margin: { top: 0, right: 0, bottom: 0, left: 0 },
+    });
+  } else {
+    await fs.stat(path.join(downloads, "elastic-security-preso.pdf"));
+  }
 
   const sourceHtml = await fs.readFile(path.join(dist, "index.html"), "utf8");
   let offline = sourceHtml;
@@ -151,10 +158,12 @@ try {
     ),
     path.join(outputs, "elastic-security-design.md"),
   );
-  await fs.copyFile(
-    path.join(qa, "export-01.png"),
-    path.join(outputs, "elastic-security-preview.png"),
-  );
+  if (!offlineOnly) {
+    await fs.copyFile(
+      path.join(qa, "export-01.png"),
+      path.join(outputs, "elastic-security-preview.png"),
+    );
+  }
 
   // Rebuild once so the Pages artifact contains the generated companion files.
   execFileSync("npm", ["run", "build"], { cwd: root, stdio: "inherit" });
@@ -164,6 +173,7 @@ try {
         coreScenes: scenes.length,
         suggestedPacing: pacing,
         thumbnailCount: thumbs.length,
+        pdfUpdated: !offlineOnly,
         pageErrors: errors,
         outputs,
       },

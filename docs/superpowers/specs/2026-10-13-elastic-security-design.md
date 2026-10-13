@@ -57,13 +57,15 @@ An optional AlertZero appendix is outside the 34-scene core. Label it announced,
 
 White/light surfaces; spacious editorial layouts; black headlines with blue emphasis; Inter and IBM Plex Mono; fine rules; blue `#0B64DD`, teal `#48EFCF`/`#02BCB7`, pink `#F04E98`. Original isometric SVG diagrams and a restrained dot matrix explain relationships. Use licensed, locally bundled fonts and a correctly attributed Elastic mark.
 
-Use a proportionally scaled 1280×720 stage, approximately 180ms scene transitions, and 600ms staggered entrances. Evidence converges, detections expose sequences, alerts group, queries appear, and approval gates lead to actions. Walkthroughs have explicit forward/back steps. Reduced motion shows complete content instantly without removing user-controlled steps. Print and thumbnails show the final static state.
+Use a proportionally scaled 1280×720 stage, approximately 180ms scene transitions, and 600ms staggered entrances. Evidence converges, detections expose sequences, alerts group, queries appear, and approval gates lead to actions. Walkthrough sequences advance and loop automatically while the presenter remains on a scene. Reduced motion shows complete content instantly. Print and thumbnails show the final static state.
 
 ## Implementation
 
+**Playback correction approved October 13, 2026:** the user requested continuous animation on each slide and arrow keys exclusively for slide navigation. This replaces the original manual walkthrough navigation. Replay restarts the automatic sequence; browser history records slides.
+
 Use Vite, TypeScript, and vanilla HTML/CSS. Separate controller, visuals, content, and fictional incident data. Scene definitions include stable IDs, title, chapter, notes, sources, availability, density layers, and build steps. The controller owns scene index, step, and density, disposes scene resources, and avoids global timer/listener leaks.
 
-Root `index.html` and a `company-preso.html` alias support `#0`–`#33`, hash changes, reloads, and browser back/forward. Arrow/Space/Page keys move forward/back; Home/End select core boundaries. Walkthrough steps advance before scene exit. Density defaults to 3, with levels 1–5 revealing deeper explanation without changing the argument or claims.
+Root `index.html` and a `company-preso.html` alias support `#0`–`#33`, hash changes, reloads, and browser back/forward. Arrow/Space/Page keys move forward/back; Home/End select core boundaries. Every navigation input moves directly between scenes; animation phases never consume navigation input. Density defaults to 3, with levels 1–5 revealing deeper explanation without changing the argument or claims.
 
 Include overview, filmstrip with complete PNG thumbnails, inline speaker notes, presenter timer, fullscreen, laser, drawing, replay, shortcut help, and touch navigation. Inline notes are explicitly approved in place of the split presenter pattern; a presenter popup, recording, server saves, and collaboration services are out of scope.
 

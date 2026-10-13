@@ -4,6 +4,8 @@
 
 Core argument: **An attacker crosses boundaries. Your investigation should too.**
 
+Animation sequences play and loop automatically. Arrow, Space, and Page keys move directly between slides; R replays the current slide. Reduced motion shows complete diagrams immediately.
+
 All incident data and UI walkthroughs are illustrative. Verify findings, entitlements, versions, models, connectivity, and action privileges for the customer. Sources checked October 13, 2026. Hide the inline notes before screen sharing.
 
 ## 01. Elastic Security. Coordinated defense.
@@ -222,9 +224,9 @@ All incident data and UI walkthroughs are illustrative. Verify findings, entitle
 
 **Open:** Let the evidence change the hypothesis one step at a time.
 
-**Explain:** Advance through the builds. First show the valid-looking identity event, then execution, then movement. Finish with archive staging and the outbound connection. Do not call this confirmed exfiltration. The useful output is an investigation with specific entities, a time window, and evidence to examine.
+**Explain:** Follow the automatic sequence. First show the valid-looking identity event, then execution, then movement. Finish with archive staging and the outbound connection. Do not call this confirmed exfiltration. The useful output is an investigation with specific entities, a time window, and evidence to examine.
 
-**Walkthrough:**
+**Automatic animation sequence:**
 
 1. **09:12 · Identity** — svc-backup authenticates from an unfamiliar workstation. This is an observation, not a compromise verdict.
 2. **09:17 · Execution** — WIN-FIN-07 records encoded PowerShell outside the expected backup job. Review the process and owner context.
@@ -378,7 +380,7 @@ All incident data and UI walkthroughs are illustrative. Verify findings, entitle
 
 **Explain:** Automatic Migration can assist with supported SIEM content. The test is whether the translated rule detects the intended behavior on your real mapped data. Include negative cases and late-arriving events, and preserve the current system until acceptance criteria pass. Never promise a universal conversion percentage.
 
-**Walkthrough:**
+**Automatic animation sequence:**
 
 1. **Inventory** — Choose a supported source and identify assets, data requirements, owners, and expected detections.
 2. **Translate** — Review the proposed Elastic content. Resolve field mappings and unsupported or incomplete translations.
@@ -431,9 +433,9 @@ All incident data and UI walkthroughs are illustrative. Verify findings, entitle
 
 **Open:** Follow the evidence loop, not the eloquence of the answer.
 
-**Explain:** Advance through the question, query, result rows, and qualified explanation. The scripted answer is intentionally careful about the outbound connection. The account owner verifies the unauthorized commands; the analyst then documents what is known and asks the response owner for a specific action.
+**Explain:** Follow the automatic sequence of the question, query, result rows, and qualified explanation. The scripted answer is intentionally careful about the outbound connection. The account owner verifies the unauthorized commands; the analyst then documents what is known and asks the response owner for a specific action.
 
-**Walkthrough:**
+**Automatic animation sequence:**
 
 1. **Ask a scoped question** — What activity links svc-backup, WIN-FIN-07, and LNX-DB-03 during the incident window?
 2. **Review the retrieval** — Inspect the proposed ES|QL and the data scope. The shown query is a teaching example.
@@ -491,7 +493,7 @@ All incident data and UI walkthroughs are illustrative. Verify findings, entitle
 
 **Explain:** The owner accepts the business impact before the run begins. Isolate both WIN-FIN-07 and LNX-DB-03: disabling credentials alone would not end an existing Linux session. Endpoint isolation is native; the account-disable step is a configured directory integration. Review every result. A sent request is not successful containment.
 
-**Walkthrough:**
+**Automatic animation sequence:**
 
 1. **Evidence verified** — 09:44 · The analyst and account owner confirm unauthorized activity and document the supporting observations.
 2. **Containment approved** — 09:52 · The incident owner approves isolation of WIN-FIN-07 and LNX-DB-03 plus the account action. Nothing has executed yet.

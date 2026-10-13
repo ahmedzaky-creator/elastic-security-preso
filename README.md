@@ -7,12 +7,12 @@ The 34-scene story connects on-premises evidence, layered detection, investigati
 ## Present
 
 - Published site: https://ahmedzaky-creator.github.io/elastic-security-preso/
-- Keyboard: arrows/Space/Page keys move through builds and slides; Home/End select boundaries.
+- Keyboard: arrows/Space/Page keys move directly between slides; Home/End select boundaries.
 - `G` overview, `T` filmstrip, `N` notes, `F` fullscreen, `1–5` density (default 3).
 - `R` replay, `L` laser, `D` drawing, `C` clear drawing, `?` help/downloads.
 - Hide inline speaker notes before sharing the presentation window.
 
-The overview and filmstrip use complete rendered previews. Browser back/forward restores the last visited walkthrough build. Reduced motion preserves the narrative without animated transitions.
+The overview and filmstrip use complete rendered previews. Animations play and loop automatically while you stay on a slide. Browser back/forward returns to the visited slide and restarts its animation. Replay restarts the current slide. Reduced motion shows each complete diagram immediately.
 
 ## Companion files
 
@@ -49,9 +49,11 @@ npm run export
 
 The export command regenerates notes, all 34 thumbnails, settled-state PDF, offline HTML, and the final Pages build. Set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` when using a custom Chromium executable. The exporter defaults to Chrome's standard macOS path.
 
+For a controller-only update, `npm run export -- --offline-only` refreshes the offline player and notes using the existing PDF and thumbnails.
+
 Local companion copies are placed in `artifacts/`, with visual checks in `work/qa/`. Override those locations with `PRESENTATION_OUTPUT_DIR` or `PRESENTATION_QA_DIR` when needed.
 
-`npm test` checks core routing, walkthrough/history behavior, density, keyboard activation, tablet/mobile layout, notes, annotations, reduced motion, and print structure. `node scripts/qa.mjs --all` captures all scenes at density 1/3/5 from the local preview for visual inspection.
+`npm test` checks core routing, automatic animation, direct navigation, and history behavior, density, keyboard activation, tablet/mobile layout, notes, annotations, reduced motion, and print structure. `node scripts/qa.mjs --all` captures all scenes at density 1/3/5 from the local preview for visual inspection.
 
 Pushes to `main` run verification and publish the Pages artifact. Roll back by reverting the relevant commit and allowing the workflow to redeploy. No runtime backend or secrets are required.
 

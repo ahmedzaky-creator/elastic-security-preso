@@ -813,7 +813,7 @@ function detectionDemo(o: VisualOptions): string {
     mono(
       360,
       371,
-      "ILLUSTRATIVE EVENTS + RESULT · USER-CONTROLLED BUILD",
+      "ILLUSTRATIVE EVENTS + RESULT",
       10.5,
       C.muted,
       "middle",

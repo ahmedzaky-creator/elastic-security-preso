@@ -11,6 +11,7 @@ const app = document.querySelector<HTMLDivElement>("#app")!;
 const params = new URLSearchParams(location.search);
 const printMode = params.has("print");
 const staticMode = params.get("render") === "static" || printMode;
+const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
 const esc = (s: string) =>
   s.replace(
     /[&<>"']/g,
@@ -30,7 +31,7 @@ const readDensity = () => {
 };
 let index = clamp(Number(location.hash.slice(1)) || 0, 0, scenes.length - 1);
 let density = clamp(Number(params.get("density")) || readDensity(), 1, 5);
-let step = staticMode ? (scenes[index].steps?.length || 1) - 1 : 0;
+let step = startingStep(index);
 let notesOpen = false;
 let filmstripOpen = false;
 let laserOn = false;
@@ -38,6 +39,8 @@ let drawOn = false;
 let startTime = Date.now();
 let pausedAt = 0;
 let timerInterval: ReturnType<typeof setInterval> | undefined;
+let animationTimeout: ReturnType<typeof setTimeout> | undefined;
+let animationGeneration = 0;
 let currentPath: SVGPathElement | null = null;
 let points = "";
 let swipeStart: { x: number; y: number } | null = null;
@@ -62,6 +65,58 @@ const icons = {
   down: icon("M12 3v12 M7 10l5 5 5-5 M4 17v4h16v-4"),
 };
 
+function startingStep(sceneIndex: number) {
+  return staticMode || reducedMotion.matches
+    ? (scenes[sceneIndex].steps?.length || 1) - 1
+    : 0;
+}
+
+function animationProgress(scene: Scene) {
+  return scene.steps
+    ? `${scene.steps.map((s, n) => `<span class="step-dot ${n === step ? "current" : n < step ? "done" : ""}" title="${esc(s.label)}"></span>`).join("")}<span>${esc(scene.steps[step]?.label || "")} <small>${step + 1}/${scene.steps.length}</small></span>`
+    : "";
+}
+
+function stopAnimation() {
+  if (animationTimeout !== undefined) clearTimeout(animationTimeout);
+  animationTimeout = undefined;
+  animationGeneration++;
+}
+
+function scheduleAnimation() {
+  stopAnimation();
+  const count = scenes[index].steps?.length || 1;
+  if (
+    staticMode ||
+    reducedMotion.matches ||
+    count < 2 ||
+    document.hidden ||
+    document.querySelector("dialog[open]") ||
+    drawOn
+  )
+    return;
+  const generation = animationGeneration;
+  const sceneIndex = index;
+  const delay = step === count - 1 ? 4800 : 3200;
+  animationTimeout = setTimeout(() => {
+    if (generation !== animationGeneration || index !== sceneIndex) return;
+    step = (step + 1) % count;
+    const visual = document.querySelector(".visual-stage")!;
+    visual.innerHTML = renderVisual(scenes[index], {
+      step,
+      settled: false,
+      density,
+    });
+    visual.querySelector(".security-visual")?.classList.add("auto-frame");
+    document.querySelector(".step-strip")!.innerHTML = animationProgress(
+      scenes[index],
+    );
+    document.querySelector<HTMLElement>(".slide")!.dataset.step = String(step);
+    signalReady();
+    scheduleAnimation();
+  }, delay);
+}
+
 function slideMarkup(
   scene: Scene,
   i: number,
@@ -73,7 +128,7 @@ function slideMarkup(
     <header class="scene-eyebrow reveal" style="--delay:0ms"><span class="tiny-square"></span>${esc(scene.eyebrow)}<span class="scene-marker">${scene.illustrative ? "ILLUSTRATIVE INCIDENT" : "ELASTIC SECURITY"}</span></header>
     <div class="scene-copy"><h1 class="reveal" style="--delay:60ms">${esc(scene.headline)}<em>${esc(scene.emphasis)}</em></h1><p class="lead reveal" style="--delay:130ms">${esc(scene.lead)}</p></div>
     <div class="visual-stage">${renderVisual(scene, { step: sceneStep, settled, density })}</div>
-    ${scene.steps ? `<div class="step-strip" aria-label="Walkthrough progress">${scene.steps.map((s, n) => `<span class="step-dot ${n === sceneStep ? "current" : n < sceneStep ? "done" : ""}" title="${esc(s.label)}"></span>`).join("")}<span>${esc(scene.steps[sceneStep]?.label || "")} <small>${sceneStep + 1}/${scene.steps.length}</small></span></div>` : ""}
+    ${scene.steps ? `<div class="step-strip" aria-label="Animation progress">${scene.steps.map((s, n) => `<span class="step-dot ${n === sceneStep ? "current" : n < sceneStep ? "done" : ""}" title="${esc(s.label)}"></span>`).join("")}<span>${esc(scene.steps[sceneStep]?.label || "")} <small>${sceneStep + 1}/${scene.steps.length}</small></span></div>` : ""}
     <p class="density-extra reveal" style="--delay:380ms">${esc(scene.densityExtra)}<span class="density-deep"><b>REQUIREMENTS</b>${esc(scene.qualification)}</span></p>
     <div class="takeaways">${scene.takeaways.map((t, n) => `<div class="takeaway reveal" style="--delay:${400 + n * 90}ms"><span class="takeaway-label">${esc(t.label)}</span><h2>${esc(t.value)}</h2><p>${esc(t.detail)}</p></div>`).join("")}</div>
     <p class="qualification">${esc(scene.qualification)}</p>
@@ -102,7 +157,7 @@ function mount() {
   }
   app.innerHTML = `<div class="presentation-shell">
     <header class="topbar"><div class="brand">Elastic <strong>Security</strong></div>
-      <div class="nav-controls"><button id="prev" class="arrow" aria-label="Previous slide or step" title="Previous · ←">‹</button><span id="counter" class="counter"></span><button id="next" class="arrow" aria-label="Next slide or step" title="Next · →">›</button></div>
+      <div class="nav-controls"><button id="prev" class="arrow" aria-label="Previous slide" title="Previous slide · ←">‹</button><span id="counter" class="counter"></span><button id="next" class="arrow" aria-label="Next slide" title="Next slide · →">›</button></div>
       <div class="main-tools"><button id="overview-toggle" title="Overview · G">${icons.overview}<span>Overview</span></button><button id="filmstrip-toggle" title="Filmstrip · T">${icons.film}<span>Filmstrip</span></button><div class="density-control" aria-label="Content density"><span>Density</span>${[1, 2, 3, 4, 5].map((n) => `<button data-density="${n}" aria-label="Density ${n}" aria-pressed="${n === density}">${n}</button>`).join("")}</div><button id="notes-toggle" title="Speaker notes · N">${icons.notes}<span>Notes</span></button><button id="fullscreen" title="Fullscreen · F">${icons.full}<span>Present</span></button><button id="help-toggle" class="help-button" aria-label="Presentation help and downloads">?</button></div>
     </header>
     <main class="presentation-main"><div class="stage-wrap" id="stage-wrap"><div id="stage-mount"></div><svg id="ink" viewBox="0 0 1280 720" aria-label="Presentation annotations"></svg><div id="laser-dot" aria-hidden="true"></div></div><aside class="notes-panel" id="notes-panel" aria-label="Speaker notes" hidden></aside></main>
@@ -116,10 +171,12 @@ function mount() {
 }
 
 function render() {
+  stopAnimation();
   const s = scenes[index];
+  if (staticMode || reducedMotion.matches) step = (s.steps?.length || 1) - 1;
   if (!staticMode)
     history.replaceState(
-      { presentation: "elastic-security", index, step },
+      { presentation: "elastic-security", index },
       "",
       `#${index}`,
     );
@@ -127,17 +184,16 @@ function render() {
     s,
     index,
     step,
-    staticMode,
+    staticMode || reducedMotion.matches,
   );
   document.title = `Elastic Security · ${index + 1}/${scenes.length} · ${s.headline} ${s.emphasis}`;
   if (!staticMode) {
     document.querySelector("#counter")!.innerHTML =
       `<strong>${String(index + 1).padStart(2, "0")}</strong><span>/ ${scenes.length}</span>`;
     document.querySelector("#chapter-label")!.textContent = s.chapter;
-    document.querySelector<HTMLButtonElement>("#prev")!.disabled =
-      index === 0 && step === 0;
+    document.querySelector<HTMLButtonElement>("#prev")!.disabled = index === 0;
     document.querySelector<HTMLButtonElement>("#next")!.disabled =
-      index === scenes.length - 1 && step === (s.steps?.length || 1) - 1;
+      index === scenes.length - 1;
     document.querySelector("#progress")!.innerHTML = scenes
       .map(
         (x, n) =>
@@ -159,6 +215,7 @@ function render() {
     resize();
   } else resize();
   signalReady();
+  scheduleAnimation();
 }
 
 function signalReady() {
@@ -184,17 +241,17 @@ function signalReady() {
   };
 }
 
-function gotoScene(n: number, atEnd = false) {
+function gotoScene(n: number) {
   n = clamp(n, 0, scenes.length - 1);
   if (n === index) {
-    step = atEnd ? (scenes[n].steps?.length || 1) - 1 : 0;
+    step = startingStep(n);
     render();
     return;
   }
   index = n;
-  step = staticMode || atEnd ? (scenes[n].steps?.length || 1) - 1 : 0;
+  step = startingStep(n);
   history.pushState(
-    { presentation: "elastic-security", index, step },
+    { presentation: "elastic-security", index },
     "",
     `#${index}`,
   );
@@ -202,20 +259,9 @@ function gotoScene(n: number, atEnd = false) {
 }
 
 function move(dir: number) {
-  const last = (scenes[index].steps?.length || 1) - 1;
-  if (dir > 0 && step < last) {
-    step++;
-    render();
-    return;
-  }
-  if (dir < 0 && step > 0) {
-    step--;
-    render();
-    return;
-  }
   if ((dir < 0 && index === 0) || (dir > 0 && index === scenes.length - 1))
     return;
-  gotoScene(index + dir, dir < 0);
+  gotoScene(index + dir);
 }
 
 function setDensity(n: number) {
@@ -268,6 +314,7 @@ function showOverview() {
   const d = document.querySelector<HTMLDialogElement>("#overview-dialog")!;
   d.innerHTML = `<div class="dialog-header"><div><span class="mono">THE WHOLE STORY</span><h2>34 scenes. One connected argument.</h2></div><button data-close aria-label="Close overview">×</button></div><div class="overview-grid">${scenes.map((s, i) => thumbButton(s, i, "overview")).join("")}</div>`;
   d.showModal();
+  scheduleAnimation();
   d.querySelectorAll<HTMLImageElement>("img").forEach((img) =>
     img.addEventListener("error", () => img.classList.add("missing")),
   );
@@ -275,8 +322,9 @@ function showOverview() {
 
 function showHelp() {
   const d = document.querySelector<HTMLDialogElement>("#help-dialog")!;
-  d.innerHTML = `<div class="dialog-header"><div><span class="mono">PRESENT WITH CONFIDENCE</span><h2>Controls & companion files</h2></div><button data-close aria-label="Close help">×</button></div><div class="help-content"><div><h3>Keyboard</h3><dl class="shortcuts"><dt>← / → · Space · Page keys</dt><dd>Move through builds, then slides</dd><dt>Home / End</dt><dd>First / last scene</dd><dt>1–5</dt><dd>Content density · default 3</dd><dt>G / T / N / F</dt><dd>Overview / filmstrip / notes / fullscreen</dd><dt>R / L / D / C</dt><dd>Replay / laser / draw / clear ink</dd><dt>Esc</dt><dd>Close an overlay or leave pointer tools</dd></dl><p class="help-caption">All incident data and product walkthroughs are illustrative. Sources and requirements appear on each scene and in the notes.</p></div><div><h3>Take it with you</h3><a class="download-link" href="${downloadBase}elastic-security-preso.pdf" download>${icons.down}34-page PDF</a><a class="download-link" href="${downloadBase}elastic-security-preso.html" download>${icons.down}Offline presentation</a><a class="download-link" href="${downloadBase}presenter-notes.md" download>${icons.down}Presenter notes</a><a class="download-link" href="${downloadBase}Conversation%20Prep%20-%20Elastic%20Security%20Customer%20Presentation.md" download>${icons.down}Buyer conversation guide</a><button class="appendix-link" id="open-appendix">What’s next: AlertZero ↗</button><p class="help-caption">Core capabilities are qualified by deployment, subscription, supported models, and connectivity. Public evidence checked October 13, 2026.</p></div></div>`;
+  d.innerHTML = `<div class="dialog-header"><div><span class="mono">PRESENT WITH CONFIDENCE</span><h2>Controls & companion files</h2></div><button data-close aria-label="Close help">×</button></div><div class="help-content"><div><h3>Keyboard</h3><dl class="shortcuts"><dt>← / → · Space · Page keys</dt><dd>Move directly between slides</dd><dt>Home / End</dt><dd>First / last scene</dd><dt>1–5</dt><dd>Content density · default 3</dd><dt>G / T / N / F</dt><dd>Overview / filmstrip / notes / fullscreen</dd><dt>R / L / D / C</dt><dd>Replay / laser / draw / clear ink</dd><dt>Esc</dt><dd>Close an overlay or leave pointer tools</dd></dl><p class="help-caption">Animations play and loop automatically while you stay on a slide. R restarts the current slide. All incident data and product walkthroughs are illustrative. Sources and requirements appear on each scene and in the notes.</p></div><div><h3>Take it with you</h3><a class="download-link" href="${downloadBase}elastic-security-preso.pdf" download>${icons.down}34-page PDF</a><a class="download-link" href="${downloadBase}elastic-security-preso.html" download>${icons.down}Offline presentation</a><a class="download-link" href="${downloadBase}presenter-notes.md" download>${icons.down}Presenter notes</a><a class="download-link" href="${downloadBase}Conversation%20Prep%20-%20Elastic%20Security%20Customer%20Presentation.md" download>${icons.down}Buyer conversation guide</a><button class="appendix-link" id="open-appendix">What’s next: AlertZero ↗</button><p class="help-caption">Core capabilities are qualified by deployment, subscription, supported models, and connectivity. Public evidence checked October 13, 2026.</p></div></div>`;
   d.showModal();
+  scheduleAnimation();
   d.querySelector("#open-appendix")!.addEventListener("click", () => {
     d.close();
     showAppendix();
@@ -287,9 +335,13 @@ function showAppendix() {
   const d = document.querySelector<HTMLDialogElement>("#appendix-dialog")!;
   d.innerHTML = `<div class="dialog-header"><div><span class="mono">OPTIONAL OUTLOOK · OCTOBER 13, 2026</span><h2>AlertZero</h2></div><button data-close aria-label="Close appendix">×</button></div><div class="appendix-content"><span class="status-pill">ANNOUNCED · FORTHCOMING TECHNICAL PREVIEW</span><h3>Specialized agents.<br/><em>Shared context. Human judgment.</em></h3><p>Elastic publicly announced AlertZero on October 8, 2026: specialized agents for the security operations lifecycle, designed to support analyst investigation and controlled action.</p><div class="watch-row"><span>Triage</span><span>Hunt</span><span>Detection</span><span>Forensics</span></div><p>Availability is forthcoming, with deployment and preview requirements to be confirmed. This outlook is separate from the 34-scene presentation of current capabilities.</p><a href="https://ir.elastic.co/News--Events/news/news-details/2026/Elastic-Announces-AlertZero-a-Team-of-Specialized-AI-Agents-for-the-Security-Operations-Lifecycle/default.aspx" target="_blank" rel="noopener noreferrer">Read the public announcement ↗</a></div>`;
   d.showModal();
+  scheduleAnimation();
 }
 
 function bindControls() {
+  document
+    .querySelectorAll("dialog")
+    .forEach((dialog) => dialog.addEventListener("close", scheduleAnimation));
   document.querySelector("#prev")!.addEventListener("click", () => move(-1));
   document.querySelector("#next")!.addEventListener("click", () => move(1));
   document
@@ -503,6 +555,7 @@ function syncTools() {
   document.querySelector("#stage-wrap")?.classList.toggle("lasering", laserOn);
   if (!laserOn)
     document.querySelector("#laser-dot")?.classList.remove("visible");
+  scheduleAnimation();
 }
 function clearInk() {
   const ink = document.querySelector("#ink");
@@ -534,22 +587,28 @@ function syncRoute() {
     0,
     scenes.length - 1,
   );
-  const saved = history.state;
-  const last = (scenes[nextIndex].steps?.length || 1) - 1;
-  const nextStep = staticMode
-    ? last
-    : saved?.presentation === "elastic-security" && saved.index === nextIndex
-      ? clamp(Number(saved.step) || 0, 0, last)
-      : 0;
-  if (index === nextIndex && step === nextStep) return;
+  if (index === nextIndex) return;
   index = nextIndex;
-  step = nextStep;
+  step = startingStep(index);
   render();
 }
 window.addEventListener("hashchange", syncRoute);
 window.addEventListener("popstate", syncRoute);
 window.addEventListener("pagehide", () => {
+  stopAnimation();
   if (timerInterval) clearInterval(timerInterval);
+  timerInterval = undefined;
+});
+window.addEventListener("pageshow", () => {
+  if (!staticMode && timerInterval === undefined)
+    timerInterval = setInterval(updateTimer, 1000);
+  scheduleAnimation();
+});
+document.addEventListener("visibilitychange", scheduleAnimation);
+reducedMotion.addEventListener("change", () => {
+  if (printMode) return;
+  step = startingStep(index);
+  render();
 });
 window.addEventListener("resize", resize);
 mount();
