@@ -3,7 +3,7 @@ import path from "node:path";
 import { chromium } from "@playwright/test";
 
 const base = process.env.PRESENTATION_URL || "http://127.0.0.1:4173/";
-const qa = path.resolve("../qa");
+const qa = path.resolve(process.env.PRESENTATION_QA_DIR || "work/qa");
 await fs.mkdir(qa, { recursive: true });
 const browser = await chromium.launch({
   headless: true,

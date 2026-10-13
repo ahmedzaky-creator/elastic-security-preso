@@ -49,6 +49,8 @@ npm run export
 
 The export command regenerates notes, all 34 thumbnails, settled-state PDF, offline HTML, and the final Pages build. Set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` when using a custom Chromium executable. The exporter defaults to Chrome's standard macOS path.
 
+Local companion copies are placed in `artifacts/`, with visual checks in `work/qa/`. Override those locations with `PRESENTATION_OUTPUT_DIR` or `PRESENTATION_QA_DIR` when needed.
+
 `npm test` checks core routing, walkthrough/history behavior, density, keyboard activation, tablet/mobile layout, notes, annotations, reduced motion, and print structure. `node scripts/qa.mjs --all` captures all scenes at density 1/3/5 from the local preview for visual inspection.
 
 Pushes to `main` run verification and publish the Pages artifact. Roll back by reverting the relevant commit and allowing the workflow to redeploy. No runtime backend or secrets are required.

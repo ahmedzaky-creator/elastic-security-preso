@@ -9,8 +9,8 @@ const root = path.resolve(".");
 const dist = path.join(root, "dist");
 const downloads = path.join(root, "public/downloads");
 const thumbnails = path.join(root, "public/thumbnails");
-const outputs = path.resolve("../../outputs");
-const qa = path.resolve("../qa");
+const outputs = path.resolve(process.env.PRESENTATION_OUTPUT_DIR || "artifacts");
+const qa = path.resolve(process.env.PRESENTATION_QA_DIR || "work/qa");
 await Promise.all(
   [downloads, thumbnails, outputs, qa].map((dir) =>
     fs.mkdir(dir, { recursive: true }),
